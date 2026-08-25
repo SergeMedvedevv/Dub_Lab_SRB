@@ -668,3 +668,994 @@ More importantly, the project now has a clearly defined first milestone:
 **Create one complete, watchable 3–5 minute Serbian-dubbed film scene using the best available technologies.**
 
 Only after achieving this result will the project focus heavily on automation, optimization and independent model development.
+
+# Day 5 — First Real Prototype Pipeline
+
+## 🎯 Goal of the Day
+
+Move from testing separate tools to processing a real movie fragment and build the first working part of the DubLab SRB pipeline:
+
+**audio separation → speech recognition → timestamps → speaker separation → dubbing script preparation**
+
+For the test, we used a fragment from **Eyes Wide Shut**.
+
+---
+
+## ✅ What We Did
+
+### 1. Separated the Original Audio
+
+Installed and launched **Ultimate Vocal Remover 5.6.0**.
+
+For the first test, we selected:
+
+`UVR-MDX-NET Voc FT`
+
+The processing produced two separate tracks:
+
+- `Vocals` — character speech;
+- `Instrumental` — background without the main dialogue.
+
+The result was very good for this quiet dialogue scene.
+
+In the `Instrumental` track, the voices were almost completely removed, while the room ambience and traffic sounds outside the window remained.
+
+Even louder speech and shouting were removed quite cleanly.
+
+**Conclusion:** for Prototype V1, the UVR result is good enough, so we decided not to test additional separation models yet.
+
+---
+
+### 2. Installed WhisperX
+
+Created a separate Python environment:
+
+`G:\DubLabSRB\whisperx_env`
+
+Python version:
+
+`3.11.9`
+
+WhisperX installed successfully, but the first run produced:
+
+`Torch not compiled with CUDA enabled`
+
+The problem was that a CPU-only version of PyTorch had been installed.
+
+We removed it and installed the CUDA version.
+
+After verification:
+
+`True`
+
+`NVIDIA GeForce RTX 2080`
+
+WhisperX was successfully running on the GPU.
+
+---
+
+### 3. Transcribed the English Dialogue
+
+Instead of using the original movie audio, we used the cleaned speech track:
+
+`1_BigEyes_(Vocals).wav`
+
+WhisperX was launched with the `medium` model and English explicitly specified.
+
+The result was good:
+
+- dialogue was recognized;
+- accurate timestamps were created;
+- the long conversation was divided into individual lines;
+- `.json`, `.srt`, `.vtt`, `.tsv`, and `.txt` files were generated.
+
+At this point we already had the basic structure:
+
+`start → end → text`
+
+---
+
+### 4. Added Speaker Diarization
+
+Connected **pyannote** through Hugging Face.
+
+For this scene, we already knew there were two speakers, so the diarization was limited to two voices.
+
+After processing, WhisperX added:
+
+`SPEAKER_00`
+
+`SPEAKER_01`
+
+By checking the dialogue, we identified:
+
+`SPEAKER_00 = BILL`
+
+`SPEAKER_01 = ALICE`
+
+A few very short lines remained marked as `UNKNOWN`, but this was not critical for the first prototype.
+
+---
+
+### 5. Created a Readable Dialogue List
+
+The JSON file was inconvenient to inspect manually, so we created a separate readable text file.
+
+Example:
+
+`24.327 → 25.708 | ALICE | Tell me something.`
+
+`31.171 → 38.357 | ALICE | Those two girls at the party last night?`
+
+`60.188 → 60.448 | BILL | What?`
+
+This made it much easier to check speaker assignment and timing.
+
+---
+
+### 6. Created a Working Dubbing CSV
+
+The diarized transcript was automatically converted into a structured table:
+
+`start | end | character | english | serbian`
+
+The scene contained approximately **96 dialogue lines**.
+
+`SPEAKER_00` and `SPEAKER_01` were automatically converted into `BILL` and `ALICE`.
+
+The `serbian` column was initially left empty.
+
+---
+
+### 7. Translated the Scene into Serbian
+
+The entire dialogue was translated and the `serbian` column was filled.
+
+The translation was prepared specifically for future dubbing rather than as a purely literal translation.
+
+The main considerations were:
+
+- avoid making short lines unnecessarily long;
+- preserve the character and tone of the dialogue;
+- preserve strong or explicit language when needed;
+- keep the translation natural;
+- consider the original line duration where possible.
+
+The finished file:
+
+`dubbing_script_SR.csv`
+
+We now had a complete dubbing script with timestamps, characters, the original English text, and Serbian translation.
+
+---
+
+## ⚠️ What We Noticed
+
+WhisperX works well, but very quiet or very short speech may still be missed or recognized incorrectly.
+
+Diarization can also be uncertain with extremely short exclamations or fragments.
+
+For Prototype V1, these limitations are acceptable and do not block further work.
+
+---
+
+## 💡 Main Result of the Day
+
+For the first time, we had not just a collection of separate AI experiments, but a real working chain:
+
+**movie → dialogue separation → transcription → timestamps → speakers → translation**
+
+Most importantly, the result is now stored in a structured format that can be processed automatically.
+
+Individual dialogue lines no longer need to be copied manually.
+
+---
+
+## 🔜 Next Step
+
+Connect TTS and automatically generate Serbian dialogue:
+
+- ALICE with one voice;
+- BILL with another voice;
+
+then place the generated lines back onto the original timestamps and mix them with the `Instrumental` track.
+
+This will become the first real V1 dubbed scene.
+
+# Day 6 — First V1 Dubbing Test and First Expressive Dubbing Experiment
+
+## 🎯 Goal of the Day
+
+Continue Prototype V1 from the prepared dubbing script and finally hear Serbian dialogue inside the real movie scene.
+
+The main tasks were:
+
+**CSV → Serbian TTS → character voice selection → automatic timeline placement → first watchable dubbing test**
+
+After evaluating V1, we also made the first small experiment with a more expressive dubbing approach.
+
+---
+
+## ✅ What We Did
+
+### 1. Connected ElevenLabs API
+
+Created an ElevenLabs API key with access limited to **Text to Speech**.
+
+The key was stored locally as a Windows environment variable instead of being written directly into the Python script.
+
+Installed the ElevenLabs Python SDK inside the existing WhisperX environment.
+
+At first, we tried selected Voice Library voices for ALICE and BILL, but the Free plan did not allow those voices to be used through the API.
+
+For the test, we switched to available default voices.
+
+This allowed the API to work successfully.
+
+---
+
+### 2. Automated Serbian TTS Generation
+
+Created:
+
+`generate_test.py`
+
+The script reads:
+
+`dubbing_script_SR.csv`
+
+For every line it automatically:
+
+- reads the character name;
+- reads the Serbian text;
+- selects the correct Voice ID;
+- sends the text to ElevenLabs;
+- saves the generated audio file.
+
+The first **10 dialogue lines** were generated automatically.
+
+This confirmed that the following process works:
+
+**CSV → character → Serbian text → voice selection → TTS audio**
+
+No manual copying of individual lines was required.
+
+---
+
+### 3. Built the First Automatic Dubbing Timeline
+
+Installed `pydub`.
+
+Created:
+
+`mix_test.py`
+
+The script took the generated Serbian dialogue and placed each audio file at its original `start` timestamp over:
+
+`1_BigEyes_(Instrumental).wav`
+
+The result was saved as:
+
+`Eyes_Wide_V1_TEST.wav`
+
+The new audio track was then placed under the original movie fragment in a video editor.
+
+---
+
+## 🎬 First Real V1 Result
+
+The automatic line placement worked very well.
+
+The beginning of the Serbian lines matched the original dialogue positions correctly.
+
+This was an important confirmation that:
+
+**WhisperX timestamps → CSV → automatic timeline reconstruction**
+
+works as intended.
+
+For the first time, we could watch part of the real movie scene with automatically generated Serbian dialogue.
+
+---
+
+## ⚠️ Main V1 Problem — Dialogue Duration
+
+The most obvious problem became clear immediately.
+
+Short lines worked quite well.
+
+Longer Serbian lines were often spoken much faster than the original actor.
+
+For example:
+
+- the Serbian TTS line could finish after 2–4 seconds;
+- the original actor could continue speaking for several more seconds;
+- the lips were still moving while the Serbian voice had already finished.
+
+The TTS also generated its own rhythm and intonation rather than following the original acting performance.
+
+This became the main quality limitation of V1.
+
+---
+
+### 4. Duration Analysis
+
+Created:
+
+`check_duration.py`
+
+The script compares:
+
+`target duration = end - start`
+
+with the real duration of the generated TTS file.
+
+Some results showed large differences.
+
+Examples:
+
+`Line 1 — target 1.381 s / generated 1.068 s`
+
+`Line 2 — target 7.186 s / generated 2.090 s`
+
+`Line 4 — target 8.671 s / generated 1.904 s`
+
+`Line 10 — target 4.383 s / generated 2.461 s`
+
+This confirmed that long lines were being compressed heavily by normal TTS.
+
+---
+
+## 💡 Important Observation About Timestamps
+
+We also realized that:
+
+`end - start`
+
+does not always mean continuous speech.
+
+An original actor may include:
+
+- pauses;
+- hesitation;
+- stretched words;
+- slower delivery;
+- silence inside the line.
+
+Therefore, simply forcing every generated line to occupy the entire `start → end` interval may not always be correct.
+
+---
+
+### 5. Time-Stretch Experiment
+
+To test a simple solution, we used FFmpeg `atempo` to stretch generated speech without strongly changing pitch.
+
+Created:
+
+`stretch_test.py`
+
+Two lines were tested:
+
+`Line 1 → ×1.29`
+
+`Line 10 → ×1.78`
+
+Then a new mix was created with:
+
+`mix_test_stretch.py`
+
+Result:
+
+`Eyes_Wide_V1_TEST_STRETCH.wav`
+
+---
+
+## 🎧 Time-Stretch Result
+
+The smaller correction worked well.
+
+The first line matched the timing better and still sounded natural.
+
+The stronger ×1.78 stretch made the tenth line fit the original duration much better, but audible artifacts appeared.
+
+The voice started to sound unstable, almost like two slightly different versions of the same speaker.
+
+### Conclusion
+
+Small duration corrections can be useful.
+
+Strong post-processing stretch is not a good general solution for long dialogue lines.
+
+The speech should ideally be generated closer to the required duration from the beginning.
+
+---
+
+### 6. Missed Quiet BILL Line
+
+While watching the scene, we noticed that one short quiet BILL line between the 9th and 10th dialogue entries was missing.
+
+The original WhisperX JSON was checked.
+
+The line was not present there.
+
+This confirmed that:
+
+- the CSV conversion worked correctly;
+- the generation script worked correctly;
+- WhisperX itself had missed the quiet speech.
+
+For now, this was recorded as an ASR limitation rather than treated as a major problem.
+
+---
+
+# First V2 Experiment
+
+After seeing the limitations of normal TTS, we decided to test a second approach.
+
+The idea was not to reproduce the actor perfectly, but to preserve the larger performance characteristics:
+
+- pauses;
+- speech rate;
+- quiet or loud delivery;
+- emotional intensity;
+- general rhythm;
+- approximate duration.
+
+The goal became:
+
+**same performance shape, new language**
+
+---
+
+### 7. Prepared ALICE Material for Expressive Dubbing
+
+Original ALICE lines were cut from:
+
+`1_BigEyes_(Vocals).wav`
+
+using the timestamps already produced by WhisperX.
+
+Several ALICE lines from the first part of the scene were prepared for testing.
+
+A first timeline containing ALICE on the original positions was too long and included large silent gaps.
+
+This was inefficient because the dubbing service charged for the entire audio duration.
+
+---
+
+### 8. Created a Short Expressive Dubbing Test
+
+To reduce cost, the first four ALICE lines were joined with only short pauses between them.
+
+The resulting file was approximately:
+
+`19 seconds`
+
+This became the standard short test fragment for comparing expressive dubbing systems.
+
+---
+
+### 9. ElevenLabs Dubbing Test
+
+ElevenLabs Dubbing was tested on the 19-second ALICE fragment.
+
+Croatian was used for the first experiment because Serbian was not available in the tested Dubbing interface.
+
+### Result
+
+The result was significantly better than normal TTS.
+
+The generated translation preserved much more of:
+
+- original pauses;
+- pacing;
+- overall delivery;
+- emotional structure;
+- approximate speech duration.
+
+The difference was immediately noticeable.
+
+The result felt much closer to the original acting performance than the normal TTS version.
+
+---
+
+## 💰 Cost Problem
+
+The quality was good, but the credit consumption was high.
+
+The short ~19-second test used several thousand credits.
+
+A longer version with large silent gaps required much more.
+
+This showed that sending long timelines with silence is inefficient.
+
+It also showed that ElevenLabs Dubbing is currently too expensive for large-scale experimentation under the available project budget.
+
+---
+
+## 💡 Main Result of the Day
+
+Day 6 produced two important conclusions.
+
+### V1
+
+The classic pipeline works:
+
+**translation → TTS → automatic timeline placement**
+
+but long dialogue lines lose the original timing and acting rhythm.
+
+### V2
+
+Expressive dubbing clearly has the potential to solve part of this problem.
+
+The first test showed that preserving the original performance structure can produce a much more convincing result.
+
+ElevenLabs became the first practical quality benchmark for expressive dubbing.
+
+---
+
+## 🔜 Next Step
+
+Continue researching alternative expressive dubbing systems that may provide similar quality at a lower cost or with open-source/local inference.
+
+Candidates to investigate:
+
+- Dubformer;
+- Rask AI;
+- CAMB.AI;
+- Perso AI;
+- Meta SeamlessExpressive;
+- open-source expressive speech models.
+
+At the same time, keep V1 as a working baseline for comparison.
+
+# Day 7 — Expressive Dubbing Research and First Local TED-TTS Prototype
+
+## 🎯 Goal of the Day
+
+Continue researching alternatives to expensive commercial expressive dubbing and understand whether the key part of V2 can be built locally.
+
+The main question was:
+
+**Can we preserve approximate emotion, pauses, pacing and dialogue duration without relying entirely on ElevenLabs Dubbing?**
+
+Instead of searching only for one “all-in-one” dubbing service, we also started looking at a modular approach where different tools handle different parts of the pipeline.
+
+---
+
+## ✅ What We Did
+
+### 1. Investigated Dubformer
+
+Dubformer became one of the most technically interesting commercial candidates.
+
+Its **Voice Acting / Emotion Transfer** concept is very close to the DubLab V2 requirement:
+
+**reference performance + translated text + timing → synthesized speech with transferred delivery**
+
+The technology is promising, but practical testing was blocked by the lack of useful free minutes and limited access to the more advanced API features.
+
+### Conclusion
+
+Dubformer remains an important candidate, but it is not convenient for low-budget experimentation at the moment.
+
+---
+
+### 2. Tested Rask AI
+
+The same ALICE test material was processed through Rask AI.
+
+The result was usable, but compared with the ElevenLabs benchmark:
+
+- the voice differed noticeably from the original;
+- the overall acting performance was preserved less accurately;
+- pauses, pacing and emotional structure felt less connected to the source performance.
+
+It also appeared that full voice cloning was limited or unavailable in the tested free mode.
+
+### Conclusion
+
+Rask works as an automatic dubbing service, but for our specific goal of preserving the original performance it was weaker than the ElevenLabs result.
+
+---
+
+### 3. Tested CAMB.AI
+
+CAMB.AI was especially interesting because **Serbian was directly available** as a target language.
+
+We used:
+
+`End-to-End Dubbing`
+
+with:
+
+`MARS8-Instruct`
+
+and the higher-quality / slower transcription mode.
+
+MARS8-Instruct explicitly focuses on emotion and prosody control.
+
+### Result
+
+CAMB clearly tried to preserve part of the original intonation and delivery.
+
+Positive:
+
+- Serbian is supported;
+- some prosodic information was preserved;
+- the result was more expressive than simple TTS.
+
+Problems:
+
+- dialogue duration was less consistent;
+- one Serbian line was not fully pronounced even though the word was present in the transcript;
+- voice cloning was disabled in the tested mode;
+- the overall performance still felt weaker than the ElevenLabs benchmark.
+
+### Conclusion
+
+CAMB is technically interesting, especially because of Serbian support, but the tested result was not yet strong enough for our V2 target.
+
+---
+
+### 4. Checked Perso AI
+
+Perso AI was also investigated.
+
+Serbian is supported by the platform, but it was not available for useful testing on the free plan.
+
+Because the goal was research rather than buying subscriptions for every service, we decided not to pay only for this experiment.
+
+### Conclusion
+
+Perso remains untested for quality.
+
+---
+
+## 5. Meta SeamlessExpressive Access
+
+The request for access to:
+
+`facebook/seamless-expressive`
+
+was approved on Hugging Face.
+
+This model is particularly interesting because it was designed specifically for **cross-lingual expressivity preservation**.
+
+We checked the available Hugging Face Spaces using the model.
+
+Unfortunately, the Spaces failed with runtime/memory errors.
+
+One of them exceeded:
+
+`16 GiB`
+
+of available memory.
+
+### Hardware Research
+
+We checked possible cloud GPU options.
+
+A short experiment on a 24 GB GPU such as an RTX 3090 would cost only a few dollars or less, making cloud testing realistic.
+
+However, Meta SeamlessExpressive does not directly solve the Serbian speech-output problem, so cloud testing was postponed rather than treated as an immediate priority.
+
+---
+
+# Moving Toward a Modular Architecture
+
+During the research, an important idea emerged:
+
+**DubLab does not necessarily need one model that performs every task.**
+
+We can build the final system from specialized components.
+
+A possible V2 structure:
+
+**translation → emotion / prosody control → duration control → Serbian speech → voice identity → timeline**
+
+This shifted the research from:
+
+> “Find a free ElevenLabs replacement”
+
+toward:
+
+> “Find the strongest tool for each individual part of the dubbing pipeline.”
+
+---
+
+## 6. TED-TTS Selected for Local Testing
+
+TED-TTS became particularly interesting because it provides several features directly related to problems already found in V1:
+
+- emotion reference;
+- emotion control;
+- global duration control;
+- local segment duration control;
+- speaker reference / voice cloning.
+
+TED-TTS is built on top of **IndexTTS-2**.
+
+The official demo examples sounded promising, especially the duration and emotion-control examples.
+
+We decided to install it locally and test whether it could solve the problem of:
+
+**generated speech being much shorter than the original actor performance.**
+
+---
+
+# 7. TED-TTS Installation
+
+TED-TTS was installed separately from the existing WhisperX environment.
+
+Project location:
+
+`G:\DubLabSRB\TED-TTS`
+
+Git was not available in Windows PATH, so the repository was downloaded manually as a ZIP from GitHub and extracted into the project folder.
+
+Installed `uv` and created the project environment.
+
+---
+
+## ⚠️ DeepSpeed Problem on Windows
+
+The first dependency installation failed because TED-TTS required:
+
+`deepspeed==0.17.1`
+
+DeepSpeed failed to compile on Windows.
+
+Because DeepSpeed is not required for basic inference, its dependency was removed from:
+
+`pyproject.toml`
+
+Then the environment was rebuilt using:
+
+`uv lock`
+
+and:
+
+`uv sync`
+
+The environment installed successfully without DeepSpeed.
+
+---
+
+## 8. Downloaded IndexTTS-2 Weights
+
+TED-TTS uses the IndexTTS-2 model underneath.
+
+The official checkpoints were downloaded into:
+
+`G:\DubLabSRB\TED-TTS\checkpoints`
+
+The model files included several large components, including GPT and acoustic model weights.
+
+---
+
+## 9. CUDA / PyTorch Setup
+
+At first, the TED-TTS environment contained:
+
+`PyTorch 2.8.0+cpu`
+
+and:
+
+`CUDA available: False`
+
+The existing NVIDIA driver was also relatively old.
+
+The NVIDIA driver was updated from:
+
+`536.99`
+
+to:
+
+`610.88`
+
+After several attempts, it became clear that `uv` required an explicit PyTorch CUDA backend.
+
+The final working installation used:
+
+`torch 2.8.0 + CUDA 12.8`
+
+Final verification:
+
+`PyTorch: 2.8.0+cu128`
+
+`CUDA available: True`
+
+`CUDA: 12.8`
+
+`GPU: NVIDIA GeForce RTX 2080`
+
+The `uv` cache was also moved away from the system disk during installation because the large CUDA PyTorch package temporarily exhausted free space on C:.
+
+---
+
+## 10. Additional Environment Fixes
+
+The first TED-TTS launch revealed several missing/incompatible dependencies.
+
+Installed:
+
+`einops`
+
+A compatibility problem also appeared with NumPy 2.x.
+
+NumPy was downgraded to:
+
+`1.26.4`
+
+After these fixes, TED-TTS successfully initialized.
+
+---
+
+# 🎉 First Successful Local TED-TTS Inference
+
+The basic inference test finally completed successfully.
+
+All main models initialized and the system began real speech generation using:
+
+`cuda:0`
+
+The RTX 2080 handled inference, but almost at its limit.
+
+Peak VRAM usage was approximately:
+
+`7.8 / 8.0 GB`
+
+GPU utilization reached almost 100% during some stages.
+
+### Conclusion
+
+**TED-TTS can run locally on an RTX 2080 8 GB.**
+
+However, the available VRAM margin is extremely small.
+
+For larger experiments, repeated parameter testing or future training, a rented GPU with approximately 24 GB VRAM will be much more practical.
+
+---
+
+# 11. First Emotion Reference Test
+
+An original ALICE line was prepared as:
+
+`alice.wav`
+
+The tested line:
+
+`Those two girls at the party last night?`
+
+TED-TTS was given the original ALICE audio as an emotion reference.
+
+### Result
+
+The system clearly reacted to the source performance.
+
+We could hear:
+
+- attempts to preserve pauses;
+- changes in emotional delivery;
+- some similarity in the rhythm between words.
+
+However:
+
+- the original line lasted about 7 seconds;
+- TED-TTS generated roughly 4 seconds;
+- one word that ALICE stretches slightly in the original was spoken normally;
+- local prosody was still far from an exact copy.
+
+### Conclusion
+
+Emotion reference works, but emotion reference alone does not preserve the original duration or all local details of the performance.
+
+---
+
+## 12. Duration Control Test
+
+The same line was then tested with a target duration of approximately:
+
+`7.186 seconds`
+
+TED-TTS successfully generated a line close to the requested 7-second duration.
+
+This was important because the model did **not** simply generate a short line and append silence.
+
+It attempted to redistribute:
+
+- speech;
+- pauses;
+- pacing;
+- emotional delivery
+
+across the requested duration.
+
+### Result
+
+The duration control itself worked.
+
+However, the model did not stretch or pause in exactly the same places as the original actor.
+
+Some emotional accents appeared in the wrong positions.
+
+The result sounded somewhat artificial — similar to an old low-budget movie dub — but the mechanism itself was clearly working.
+
+---
+
+## 13. Emotion Representation
+
+During the emotion-controlled test, TED-TTS displayed an internal emotion vector.
+
+Example:
+
+`happy        0.000`
+
+`angry        0.100`
+
+`sad          0.100`
+
+`afraid       0.100`
+
+`disgusted    0.100`
+
+`melancholic  0.100`
+
+`surprised    0.100`
+
+`calm         0.450`
+
+This showed that emotion is represented as a mixture of several components rather than a single label.
+
+This may allow more precise manual control in future experiments.
+
+---
+
+## ⚠️ What We Learned
+
+TED-TTS is not yet a ready solution for DubLab, but it solves several important problems that ordinary TTS does not.
+
+It can:
+
+- react to an emotional reference;
+- control total generated duration;
+- redistribute speech across the requested time instead of simply stretching finished audio;
+- potentially control emotion and duration at a more detailed segment level;
+- run locally without paying per generated minute.
+
+At the same time:
+
+- local prosody is not automatically copied exactly;
+- emotional accents can appear in the wrong places;
+- the RTX 2080 is operating extremely close to its VRAM limit;
+- Serbian support still needs to be investigated separately.
+
+---
+
+## 💡 Main Result of the Day
+
+Day 7 changed the direction of the research.
+
+Instead of looking only for another commercial dubbing website, we confirmed that a **local modular expressive-speech pipeline is technically possible**.
+
+TED-TTS successfully demonstrated two mechanisms that are especially important for DubLab:
+
+**emotion control + duration control**
+
+The quality still requires experimentation, but the technology is promising enough to continue.
+
+---
+
+## 🔜 Next Step
+
+Continue TED-TTS experiments with:
+
+- manual emotion control;
+- speaker reference / voice cloning;
+- combined emotion + duration control;
+- local segment duration control;
+- testing whether the same approach can eventually work with Serbian.
+
+Commercial systems remain useful as benchmarks, but the main research direction is moving toward a controllable local V2 pipeline.
