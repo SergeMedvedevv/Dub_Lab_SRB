@@ -93,7 +93,6 @@ gpt_pairs_val.jsonl
 # Training output
 # ------------------------------------------------------------
 
-training/
 checkpoints/
 outputs/
 runs/
