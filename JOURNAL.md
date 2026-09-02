@@ -12,7 +12,10 @@ The purpose of keeping this journal is to preserve the real development history 
 - Day 2 — Serbian F5-TTS and model testing
 - Day 3 — Datasets, ElevenLabs API and n8n
 - Day 4 — Fish Audio S2 Pro and TTS comparison
-
+- Day 5 — First real prototype pipeline
+- Day 6 — First V1 dubbing test and expressive dubbing experiment
+- Day 7 — Expressive dubbing research and first local TED-TTS prototype
+- Day 8 — Serbian adaptation research and project consolidation
 - ---
 
 ## Day 1 — First TTS experiments and Pinokio
