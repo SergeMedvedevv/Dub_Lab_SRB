@@ -57,6 +57,59 @@ The current blocker is Serbian language support.
 The next major R&D objective is therefore:
 
 **Serbian expressive speech with IndexTTS-style performance control.**
+
+---
+
+## 🧠 Serbian Training Research
+
+A separate training pipeline is being prepared for adapting IndexTTS-2 to Serbian.
+
+This work focuses on combining:
+
+```text
+Serbian pronunciation
++
+speaker identity
++
+emotion
++
+duration / pacing control
+```
+
+The training pipeline includes:
+
+```text
+RunPod setup
+↓
+server preflight
+↓
+ParlaSpeech preparation
+↓
+dataset construction
+↓
+IndexTTS preprocessing
+↓
+GPT pair generation
+↓
+smoke test
+↓
+GPU benchmark
+↓
+full training
+```
+
+The complete training code and documentation are available here:
+
+- [Serbian Training](training/README.md)
+- [Training Pipeline Architecture](docs/TRAINING_PIPELINE.md)
+- [RunPod Runbook](training/RUNPOD_RUNBOOK.md)
+
+The pipeline has been prepared and validated locally.
+
+Actual RunPod deployment and full Serbian model training are still pending.
+
+---
+
 ## ⚠️ Status
 
 DubLab SRB is currently an experimental R&D project and is not production-ready.
