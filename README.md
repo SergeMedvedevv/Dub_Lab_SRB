@@ -102,6 +102,7 @@ The complete training code and documentation are available here:
 
 - [Serbian Training](training/README.md)
 - [Training Pipeline Architecture](docs/TRAINING_PIPELINE.md)
+- [Local Validation and Safety Checks](docs/VALIDATION.md)
 - [RunPod Runbook](training/RUNPOD_RUNBOOK.md)
 
 The pipeline has been prepared and validated locally.
