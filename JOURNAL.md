@@ -1659,3 +1659,1101 @@ Continue TED-TTS experiments with:
 - testing whether the same approach can eventually work with Serbian.
 
 Commercial systems remain useful as benchmarks, but the main research direction is moving toward a controllable local V2 pipeline.
+
+## Day 8 — Serbian Adaptation Research and Project Consolidation
+
+### 🎯 Goal of the Day
+
+Continue from the successful local TED-TTS / IndexTTS-2 expressive speech experiments from Day 7.
+
+At the beginning of the day, the main technical question was:
+
+> Can the expressive V2 system that already controls speaker identity, emotion and duration also generate usable Serbian?
+
+The second goal became clear after the Serbian test failed:
+
+> Determine what would be required to adapt IndexTTS to Serbian and decide whether it makes sense to start that work now.
+
+Later, because paid GPU training was not currently available, the project focus shifted toward documentation and infrastructure that could be completed without additional cost.
+
+---
+
+### 🔗 Dependencies / Starting Point
+
+Day 8 depended directly on the working environment created in Day 7.
+
+Available:
+
+- TED-TTS;
+- IndexTTS-2;
+- Python 3.11.9;
+- PyTorch 2.8.0+cu128;
+- CUDA 12.8;
+- RTX 2080 8 GB;
+- downloaded IndexTTS checkpoints;
+- working speaker reference;
+- working emotion control;
+- working duration-control functions;
+- Eyes Wide Shut prototype material;
+- Serbian translations from Prototype V1.
+
+The important starting point was:
+
+```text
+expressive English generation = working
+```
+
+The unanswered question was:
+
+```text
+Serbian generation = ?
+```
+
+---
+
+### 1. Reviewed the TED-TTS Inference Modes
+
+Before continuing the language test, the available TED-TTS controls were reviewed more carefully.
+
+The inference script exposed six modes:
+
+```text
+Mode 0
+Mode 1
+Mode 2
+Mode 3
+Mode 4
+Mode 5
+```
+
+The main functions included:
+
+```text
+speaker reference
+emotion reference audio
+8-dimensional emotion vector
+per-segment emotion text
+global duration control
+local / per-segment duration control
+```
+
+This confirmed that TED-TTS had exactly the kind of control required for the experimental V2 direction.
+
+---
+
+### 2. Emotion Vector Control
+
+A more focused emotion test was made using a real line from Eyes Wide Shut.
+
+Example:
+
+```text
+Those two girls at the party last night?
+```
+
+Instead of using a generic neutral generation, an explicit emotion vector was provided.
+
+Example structure:
+
+```text
+happy        0.00
+angry        0.25
+sad          0.00
+afraid       0.10
+disgusted    0.10
+melancholic  0.05
+surprised    0.05
+calm         0.45
+```
+
+The intention was to create a delivery closer to:
+
+```text
+suspicious
+restrained
+slightly confrontational
+```
+
+rather than simply making the voice sound "angry."
+
+This was important because film performance usually contains mixed emotional states rather than one simple emotion label.
+
+---
+
+### 💡 Expressive Control Result
+
+The experiment confirmed that the useful direction for V2 is:
+
+```text
+speaker reference
++
+emotion information
++
+duration information
++
+target dialogue
+```
+
+rather than:
+
+```text
+text
++
+generic TTS voice
+```
+
+The expressive part of the system remained promising.
+
+The next problem was language.
+
+---
+
+### 3. Tested Serbian Text
+
+Serbian dialogue was passed to the working TED-TTS / IndexTTS-2 setup.
+
+The result was clearly unusable.
+
+The model did not produce natural Serbian pronunciation.
+
+Instead, it behaved approximately like:
+
+```text
+Serbian text
+↓
+interpreted through English / supported-language phonetics
+↓
+incorrect pronunciation
+```
+
+The result was not simply a bad Serbian accent.
+
+The model fundamentally did not understand Serbian phonetics correctly.
+
+---
+
+### ⚠️ Main Finding
+
+The expressive model solved several problems that V1 could not solve:
+
+```text
+speaker identity
+emotion
+duration
+performance control
+```
+
+but failed at:
+
+```text
+Serbian language support
+```
+
+This produced a very clear comparison.
+
+#### ElevenLabs / V1
+
+```text
+Serbian pronunciation = GOOD
+Emotion / duration control = LIMITED
+```
+
+#### TED-TTS / IndexTTS-2
+
+```text
+Emotion / duration control = PROMISING
+Serbian pronunciation = BAD
+```
+
+The future goal became:
+
+```text
+Serbian
++
+IndexTTS-style expressive control
+```
+
+---
+
+### 4. Checked Croatian as a Possible Shortcut
+
+Because Serbian and Croatian are closely related, Croatian support was investigated as a possible workaround.
+
+The idea was:
+
+```text
+if Croatian is supported
+↓
+perhaps Serbian Latin text could be handled sufficiently well
+```
+
+However, the tested IndexTTS-2 setup did not provide proper Croatian support either.
+
+Therefore:
+
+```text
+Croatian ≠ shortcut to Serbian
+```
+
+This route was rejected.
+
+---
+
+### 5. Investigated Serbian Fine-Tuning
+
+The next question became:
+
+> How can IndexTTS be taught Serbian?
+
+This is more complicated than ordinary voice fine-tuning.
+
+The missing capability is not only:
+
+```text
+new speaker
+```
+
+but:
+
+```text
+new language
+```
+
+A Serbian adaptation may require work on several levels:
+
+- Serbian speech data;
+- accurate transcripts;
+- tokenizer / vocabulary coverage;
+- Serbian phonetics;
+- text-to-speech alignment;
+- model fine-tuning;
+- evaluation of pronunciation and prosody.
+
+This became the central Serbian model research direction.
+
+---
+
+### 6. Important Distinction: Voice Training vs Language Adaptation
+
+A normal speaker adaptation teaches:
+
+```text
+how a person sounds
+```
+
+Serbian adaptation must also teach:
+
+```text
+how Serbian is pronounced
+```
+
+Therefore a small voice sample alone cannot solve the problem.
+
+The model needs enough Serbian speech and text to learn relationships between:
+
+```text
+letters / tokens
+↓
+Serbian phonetics
+↓
+speech
+```
+
+This made dataset research necessary.
+
+---
+
+### 7. Investigated Serbian Speech Data
+
+Existing Serbian speech datasets remained an important research direction.
+
+One previously identified resource was:
+
+```text
+ParlaSpeech
+```
+
+The future dataset requirements were clarified.
+
+Useful training material should ideally contain:
+
+```text
+clean Serbian audio
++
+accurate Serbian transcript
++
+sufficient duration
++
+speaker diversity
++
+phonetic diversity
+```
+
+For movie dubbing, expressive or conversational speech would eventually be especially valuable.
+
+---
+
+### 8. Investigated IndexTTS-2.5
+
+A newer version, IndexTTS-2.5, was investigated.
+
+The immediate question was:
+
+> Can the current IndexTTS-2 environment simply be upgraded?
+
+Technically, moving to the newer version was possible as a separate installation / update task.
+
+However, the important question was not:
+
+```text
+Is 2.5 newer?
+```
+
+It was:
+
+```text
+Does 2.5 solve Serbian?
+```
+
+The answer was:
+
+```text
+NO
+```
+
+There was still no ready Serbian model that solved the current language problem.
+
+---
+
+### 💡 Decision: Do Not Upgrade Yet
+
+The current TED-TTS / IndexTTS-2 environment was already working.
+
+Installing a newer model would introduce:
+
+- another dependency cycle;
+- new model downloads;
+- possible CUDA problems;
+- possible compatibility problems;
+- more disk usage.
+
+Without Serbian support, this would not solve the main problem.
+
+Decision:
+
+```text
+KEEP CURRENT WORKING ENVIRONMENT
+```
+
+and:
+
+```text
+POSTPONE IndexTTS-2.5 INSTALLATION
+```
+
+until there is a concrete technical reason to upgrade.
+
+---
+
+### 9. Can the Earlier Serbian F5 Model Be Used?
+
+Another idea was investigated:
+
+> Can we simply give IndexTTS the earlier experimental Serbian model used during the F5-TTS tests?
+
+This would have been convenient because that model had at least some Serbian language knowledge.
+
+However, the models are based on different architectures.
+
+They use different:
+
+- model weights;
+- network structures;
+- tokenization;
+- vocabulary;
+- training pipelines.
+
+Therefore:
+
+```text
+F5-TTS Serbian checkpoint
+≠
+IndexTTS checkpoint
+```
+
+The old Serbian model cannot simply be loaded into IndexTTS.
+
+---
+
+### 💡 What Can Be Reused
+
+Although its weights are incompatible, the previous Serbian research is not useless.
+
+Potentially reusable elements include:
+
+- knowledge about Serbian datasets;
+- Serbian test sentences;
+- pronunciation evaluation methodology;
+- Latin vs Cyrillic observations;
+- future training material.
+
+So:
+
+```text
+reuse the research
+not the checkpoint
+```
+
+---
+
+### 10. Training Infrastructure Question
+
+Serbian adaptation would require significantly more compute than simple inference.
+
+The local:
+
+```text
+RTX 2080 8 GB
+```
+
+was already operating near its VRAM limit during TED-TTS inference.
+
+Therefore serious training / fine-tuning on the local GPU was not considered the preferred route.
+
+The more realistic architecture became:
+
+```text
+prepare dataset locally
+↓
+prepare configuration locally
+↓
+rent stronger GPU
+↓
+train / fine-tune remotely
+↓
+download resulting model
+↓
+test locally
+```
+
+---
+
+### 11. Budget Decision
+
+GPU rental requires additional project budget.
+
+At this point there was no budget available for starting rented-GPU training immediately.
+
+Decision:
+
+```text
+WAIT FOR THE NEXT SALARY
+```
+
+and:
+
+```text
+DO NOT START PAID TRAINING YET
+```
+
+This did not stop the project.
+
+There were still many useful tasks that could be completed without spending money.
+
+---
+
+### 12. Development Strategy Changed Temporarily
+
+The project was divided into two groups of work.
+
+#### Expensive / postponed work
+
+```text
+Serbian model training
+GPU rental
+large fine-tuning experiments
+```
+
+#### Free work available now
+
+```text
+GitHub
+documentation
+journal
+roadmap
+workflow
+Obsidian
+research organization
+training preparation
+```
+
+This prevented the project from becoming blocked by the training budget.
+
+---
+
+### 13. Started Organizing the GitHub Repository
+
+The existing DubLab SRB GitHub repository began to be turned into a real project repository rather than an empty placeholder.
+
+The documentation structure included work on:
+
+```text
+README.md
+JOURNAL.md
+ROADMAP.md
+WORKFLOW.md
+```
+
+The purpose was to separate different types of information.
+
+#### README
+
+Used for:
+
+```text
+what the project is
+current objective
+main architecture
+current status
+```
+
+#### JOURNAL
+
+Used for:
+
+```text
+what was actually done
+day by day
+including failures and conclusions
+```
+
+The same development history also began to be transferred into Obsidian.
+
+#### ROADMAP
+
+Used for:
+
+```text
+where the project is going
+```
+
+The roadmap was updated to reflect the new split between:
+
+```text
+stable V1
+```
+
+and:
+
+```text
+experimental V2 / Serbian model research
+```
+
+A new Roadmap version was kept instead of destroying the earlier one.
+
+---
+
+### 14. Updated the Project Roadmap
+
+The main project principle remained:
+
+> First prove the quality. Then automate it.
+
+The updated roadmap separated the work into:
+
+```text
+Working Prototype
+Evaluation
+Automation
+Serbian TTS Research
+```
+
+The important strategic change was that V1 and Serbian model research were no longer allowed to block each other.
+
+---
+
+### 15. Created a Detailed V1 Workflow
+
+A separate:
+
+```text
+WORKFLOW.md
+```
+
+was created.
+
+The purpose was different from the Journal.
+
+The Journal explains:
+
+```text
+what happened
+```
+
+The Workflow explains:
+
+```text
+how to reproduce the working process
+```
+
+The V1 Workflow documented the pipeline from the original movie material to the reconstructed Serbian soundtrack.
+
+---
+
+### 16. Workflow Structure
+
+The documented pipeline included:
+
+```text
+source movie
+↓
+UVR
+↓
+WhisperX
+↓
+alignment
+↓
+speaker diarization
+↓
+speaker mapping
+↓
+readable dialogue list
+↓
+dubbing CSV
+↓
+Serbian translation
+↓
+TTS
+↓
+timeline reconstruction
+↓
+duration analysis
+↓
+optional time-stretch
+↓
+final validation
+```
+
+The document also separated:
+
+```text
+V1 = stable / repeatable
+```
+
+from:
+
+```text
+V2 = experimental
+```
+
+This prevents future research experiments from breaking the documented working pipeline.
+
+---
+
+### 17. Documentation Principle
+
+A new project rule became:
+
+```text
+Journal
+=
+history
+
+Workflow
+=
+repeatable instructions
+
+Roadmap
+=
+future plan
+
+Obsidian
+=
+connected project knowledge
+```
+
+These documents should not duplicate each other unnecessarily.
+
+Each has a different role.
+
+---
+
+### 18. Started the Obsidian Knowledge Base
+
+Obsidian was selected as the main local project knowledge base.
+
+A vault was created for:
+
+```text
+Dub_Lab_SRB
+```
+
+The initial structure was organized into:
+
+```text
+00 Home
+01 Project
+02 Journal
+03 V1
+04 V2
+05 Serbian Model
+06 Research
+07 Business
+08 Mind Map
+```
+
+This separated technical work, research and business ideas while still allowing them to be connected through Obsidian links.
+
+---
+
+### 19. Why Obsidian Was Added
+
+GitHub remains useful for:
+
+- repository history;
+- public documentation;
+- code;
+- stable project files.
+
+Obsidian has a different purpose:
+
+- internal knowledge;
+- cross-links;
+- research notes;
+- model notes;
+- experiments;
+- business ideas;
+- graph relationships.
+
+The goal is not to duplicate GitHub completely.
+
+The goal is to create a connected knowledge system around the project.
+
+---
+
+### 20. Started Cross-Linking the Project
+
+The journal began to be transferred into individual Obsidian notes:
+
+```text
+Day 1
+Day 2
+Day 3
+...
+Day 8
+```
+
+The notes were also prepared for connections between topics such as:
+
+```text
+IndexTTS-2
+F5-TTS
+ElevenLabs
+WhisperX
+TED-TTS
+V1
+V2
+Serbian Model
+Serbian Datasets
+Training Plan
+```
+
+This was the beginning of the actual Obsidian graph.
+
+The aim was to avoid having the project stored only as a linear chronological journal.
+
+---
+
+### 21. Added PC ↔ Android Synchronization
+
+Because the project notes should also be available on Android, a synchronization solution was set up.
+
+Selected tool:
+
+```text
+Syncthing
+```
+
+Windows version used:
+
+```text
+Syncthing v2.1.3
+```
+
+The Windows instance was configured locally and the DubLab SRB vault folder was added.
+
+Vault path:
+
+```text
+G:\DubLabSRB\ProgrammSS\Obsidian\Dub_Lab_SRB
+```
+
+The synchronized folder was labeled:
+
+```text
+Dub_Lab_SRB
+```
+
+---
+
+### 22. Android Setup
+
+On Android, the client used was:
+
+```text
+Syncthing-Fork
+```
+
+The PC and Android devices were paired using Syncthing device IDs.
+
+A corresponding:
+
+```text
+Dub_Lab_SRB
+```
+
+folder was created on the phone and shared with the PC.
+
+The folder was configured as:
+
+```text
+Send & Receive
+```
+
+so edits can synchronize in both directions.
+
+---
+
+### ✅ Synchronization Result
+
+The synchronization successfully started working between:
+
+```text
+PC
+↕
+Android
+```
+
+This means the Obsidian project can now be used from both devices without requiring Obsidian's paid synchronization service.
+
+---
+
+### 💡 Main Result of the Day
+
+Day 8 produced two important results.
+
+#### Technical Result
+
+The main V2 blocker was identified precisely:
+
+```text
+TED-TTS / IndexTTS-2 expressive control = promising
+Serbian language capability = missing
+```
+
+Therefore the next real technical milestone became:
+
+```text
+Serbian adaptation
+```
+
+not another random TTS search.
+
+#### Project Infrastructure Result
+
+Because model training was postponed by budget, the project did not stop.
+
+Instead, the foundation was strengthened:
+
+```text
+GitHub
++
+Journal
++
+Roadmap
++
+Workflow
++
+Obsidian
++
+Syncthing
+```
+
+This turned DubLab SRB from a series of experiments into a documented research project.
+
+---
+
+### ✅ Status at the End of Day 8
+
+#### Prototype V1
+
+```text
+STABLE BASELINE
+```
+
+#### TED-TTS / IndexTTS-2
+
+```text
+WORKING EXPERIMENTALLY
+```
+
+Strong points:
+
+```text
+speaker
+emotion
+duration
+```
+
+Weak point:
+
+```text
+Serbian
+```
+
+#### IndexTTS-2.5
+
+```text
+RESEARCHED
+NOT INSTALLED
+```
+
+Reason:
+
+```text
+does not solve the Serbian problem
+```
+
+#### Serbian Model
+
+```text
+NEXT MAJOR R&D PROBLEM
+```
+
+Requires further work on:
+
+```text
+datasets
+language adaptation
+fine-tuning strategy
+training infrastructure
+```
+
+#### GPU Rental
+
+```text
+POSTPONED
+```
+
+Reason:
+
+```text
+budget
+```
+
+#### GitHub Documentation
+
+```text
+IN PROGRESS / STRUCTURED
+```
+
+Main documents:
+
+```text
+README
+JOURNAL
+ROADMAP
+WORKFLOW
+```
+
+#### Obsidian
+
+```text
+INSTALLED / STRUCTURED
+```
+
+Knowledge-base structure created.
+
+#### Syncthing
+
+```text
+WORKING
+```
+
+PC ↔ Android synchronization established.
+
+---
+
+### 🔥 Day 8 Milestone
+
+The project reached an important transition.
+
+The technical problem was now clearly defined:
+
+```text
+V1 gives us Serbian.
+V2 gives us performance control.
+
+We need both.
+```
+
+At the same time, the project now had a documentation system capable of preserving the research and preventing repeated work.
+
+---
+
+### 🔜 Next Step
+
+Until training budget becomes available:
+
+- finish transferring Journal entries into Obsidian;
+- add meaningful cross-links;
+- create a V1 Overview;
+- create a V2 Overview;
+- create Serbian Model / Serbian Adaptation notes;
+- organize Serbian Datasets;
+- document the future fine-tuning plan;
+- preserve the working TED-TTS environment;
+- avoid unnecessary IndexTTS upgrades.
+
+When budget becomes available, return to:
+
+```text
+Serbian adaptation
+↓
+rented GPU
+↓
+fine-tuning experiment
+```
+
+---
+
+### 🔗 Related
+
+- Day 7
+- Prototype V1
+- V1 Overview
+- V2 Overview
+- TED-TTS
+- IndexTTS-2
+- IndexTTS-2.5
+- Expressive Control
+- Emotion Control
+- Duration Control
+- Speaker Reference
+- Serbian Model
+- Serbian TTS Research
+- Serbian Datasets
+- ParlaSpeech
+- Fine-tuning
+- GPU Rental
+- GPU Requirements
+- F5-TTS
+- ElevenLabs
+- GitHub
+- Journal
+- Roadmap
+- Workflow
+- Obsidian
+- Syncthing
+- Mind Map
+- Experiments
