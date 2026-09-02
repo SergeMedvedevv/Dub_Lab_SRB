@@ -1,9 +1,4 @@
-# DubLab SRB — Roadmap
-
-> ⚠️ Legacy roadmap.
->
-> This file preserves an earlier development plan.
-> The current roadmap is available in `ROADMAP_v2.md`.
+# DubLab SRB — Roadmap_v2
 
 ## Current Goal
 
