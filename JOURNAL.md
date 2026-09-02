@@ -674,7 +674,7 @@ More importantly, the project now has a clearly defined first milestone:
 
 Only after achieving this result will the project focus heavily on automation, optimization and independent model development.
 
-# Day 5 — First Real Prototype Pipeline
+№# Day 5 — First Real Prototype Pipeline
 
 ## 🎯 Goal of the Day
 
@@ -867,7 +867,7 @@ then place the generated lines back onto the original timestamps and mix them wi
 
 This will become the first real V1 dubbed scene.
 
-# Day 6 — First V1 Dubbing Test and First Expressive Dubbing Experiment
+№# Day 6 — First V1 Dubbing Test and First Expressive Dubbing Experiment
 
 ## 🎯 Goal of the Day
 
@@ -1215,7 +1215,7 @@ Candidates to investigate:
 
 At the same time, keep V1 as a working baseline for comparison.
 
-# Day 7 — Expressive Dubbing Research and First Local TED-TTS Prototype
+№# Day 7 — Expressive Dubbing Research and First Local TED-TTS Prototype
 
 ## 🎯 Goal of the Day
 
