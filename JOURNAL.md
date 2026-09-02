@@ -16,7 +16,9 @@ The purpose of keeping this journal is to preserve the real development history 
 - Day 6 — First V1 dubbing test and expressive dubbing experiment
 - Day 7 — Expressive dubbing research and first local TED-TTS prototype
 - Day 8 — Serbian adaptation research and project consolidation
-- ---
+- Day 9 — Serbian training pipeline and RunPod package preparation
+
+---
 
 ## Day 1 — First TTS experiments and Pinokio
 
