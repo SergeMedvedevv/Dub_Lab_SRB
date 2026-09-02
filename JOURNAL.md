@@ -2760,3 +2760,1225 @@ fine-tuning experiment
 - Syncthing
 - Mind Map
 - Experiments
+
+## Day 9 — Serbian Training Pipeline and RunPod Package Preparation
+
+### 🎯 Goal of the Day
+
+Continue from the Serbian adaptation problem identified on Day 8.
+
+The previous stage established a clear target:
+
+```text
+V1 gives us Serbian.
+V2 gives us expressive control.
+
+We need both.
+```
+
+The next question was no longer:
+
+> Which TTS system should be tested next?
+
+It became:
+
+> How do we prepare IndexTTS-2 for an actual Serbian adaptation experiment?
+
+Because paid GPU training was still postponed, the goal of the day was not to start expensive training.
+
+Instead, the objective became:
+
+```text
+prepare everything locally
+↓
+verify everything locally
+↓
+make the training package reproducible
+↓
+rent GPU only when the package is ready
+```
+
+This marked the transition from general Serbian-model research to concrete training engineering.
+
+---
+
+### 🔗 Starting Point
+
+Available from the previous work:
+
+- working TED-TTS / IndexTTS-2 inference environment;
+- Python 3.11;
+- CUDA / PyTorch environment;
+- Serbian pronunciation problem confirmed;
+- ParlaSpeech identified as a promising Serbian dataset;
+- local RTX 2080 8 GB available for development and testing;
+- rented GPU planned for serious training;
+- no immediate GPU-rental budget.
+
+The important project decision remained:
+
+```text
+DO NOT TRAIN EXPENSIVELY YET
+```
+
+but:
+
+```text
+PREPARE THE TRAINING SYSTEM NOW
+```
+
+---
+
+### 1. Changed the Serbian Adaptation Task into a Concrete Training Pipeline
+
+Until this point, Serbian adaptation was mainly a research question.
+
+The work now began to turn it into an engineering pipeline.
+
+The required stages became:
+
+```text
+Serbian speech data
+↓
+canonical dataset manifests
+↓
+audio preparation
+↓
+IndexTTS preprocessing
+↓
+GPT training pairs
+↓
+Serbian tokenizer / configuration
+↓
+initial training checkpoint
+↓
+short smoke test
+↓
+GPU benchmark
+↓
+full training
+```
+
+This was important because the Serbian model could not be treated as one large undefined "fine-tuning" task anymore.
+
+It had to be split into independently testable stages.
+
+---
+
+### 2. ParlaSpeech Became the Main Serbian Training Dataset
+
+ParlaSpeech was selected as the main source for the first Serbian adaptation experiment.
+
+The dataset provides a large amount of Serbian parliamentary speech with transcripts.
+
+The important requirement was not simply:
+
+```text
+download ParlaSpeech
+```
+
+but:
+
+```text
+create one deterministic Serbian training subset
+```
+
+so that the same training material could be recreated later on another machine or rented GPU.
+
+The project therefore moved toward a manifest-based dataset design.
+
+---
+
+### 3. Created Canonical Dataset Planning Files
+
+Two important package files became part of the dataset contract:
+
+```text
+parlaspeech_sr_split_plan_v3.jsonl
+parlaspeech_sr_train_source.jsonl
+```
+
+They have different responsibilities.
+
+The split plan defines the selected Serbian material and how it should be used.
+
+The source manifest connects the selected records with the original ParlaSpeech material.
+
+The resulting architecture became:
+
+```text
+ParlaSpeech source
++
+canonical split plan
++
+canonical source manifest
+↓
+BUILD_DATASET.py
+↓
+parlaspeech_sr_ready.jsonl
+```
+
+This makes the training dataset reproducible instead of depending on an ad-hoc local selection.
+
+---
+
+### 4. Separated Dataset Download from Dataset Construction
+
+A useful architectural decision was made:
+
+```text
+PREPARE_PARLASPEECH.sh
+```
+
+and:
+
+```text
+BUILD_DATASET.py
+```
+
+would not perform the same job.
+
+`PREPARE_PARLASPEECH.sh` is responsible for the original ParlaSpeech material.
+
+Its job includes:
+
+```text
+download archives
+↓
+verify downloads
+↓
+extract source audio
+↓
+prepare ParlaSpeech/source
+```
+
+`BUILD_DATASET.py` has a different responsibility:
+
+```text
+read canonical split plan
++
+read canonical source manifest
++
+use prepared ParlaSpeech audio
+↓
+construct ready Serbian manifest
+```
+
+This separation later became an important project principle:
+
+> Each pipeline stage should verify and own the things that are important to that stage.
+
+---
+
+### 5. Added Download Integrity Checks
+
+Dataset preparation was designed to avoid silently training on incomplete or corrupted downloads.
+
+Downloaded ParlaSpeech archives are checked before extraction.
+
+The preparation logic includes integrity verification using the expected checksums.
+
+The intended chain became:
+
+```text
+download
+↓
+checksum verification
+↓
+only then extract
+```
+
+A corrupted archive therefore should not silently become part of the training dataset.
+
+---
+
+### 6. Made Dataset Construction Restart-Safe
+
+Dataset construction can take a long time.
+
+A failure near the end should not leave a partially written manifest that looks valid.
+
+The output logic was therefore designed around temporary output followed by promotion.
+
+Conceptually:
+
+```text
+build temporary manifest
+↓
+validate build result
+↓
+atomic promotion
+↓
+parlaspeech_sr_ready.jsonl
+```
+
+The final manifest is only published after the build has completed successfully.
+
+This protects later stages from consuming a half-written dataset description.
+
+---
+
+### 7. Defined the Ready Dataset Contract
+
+The resulting dataset manifest became:
+
+```text
+parlaspeech_sr_ready.jsonl
+```
+
+This file represents the boundary between:
+
+```text
+raw ParlaSpeech preparation
+```
+
+and:
+
+```text
+IndexTTS training preparation
+```
+
+After this point, later scripts should not need to understand how the original ParlaSpeech archives were downloaded or unpacked.
+
+They consume the ready manifest instead.
+
+---
+
+### 8. Prepared Serbian IndexTTS Training Artifacts
+
+The Serbian training package was given a canonical set of model-side artifacts.
+
+These included:
+
+```text
+bpe_serbian_13005.model
+config_serbian_13005.yaml
+gpt_serbian_13005_init.pth
+```
+
+Their roles are approximately:
+
+```text
+bpe_serbian_13005.model
+→ Serbian text/token representation
+
+config_serbian_13005.yaml
+→ Serbian training configuration
+
+gpt_serbian_13005_init.pth
+→ initial GPT checkpoint for Serbian training
+```
+
+The important idea was to stop relying on whatever files happened to exist in the local development folders.
+
+The training package should contain explicit known artifacts.
+
+---
+
+### 9. Serbian Tokenizer Became Part of the Training Contract
+
+The language problem discovered on Day 8 made tokenizer coverage especially important.
+
+The model could not simply be expected to learn Serbian pronunciation while continuing to treat Serbian text through an unsuitable text representation.
+
+Therefore the Serbian tokenizer became a first-class training artifact rather than an incidental dependency.
+
+The target architecture became:
+
+```text
+Serbian text
+↓
+Serbian tokenizer
+↓
+training pairs
+↓
+GPT training
+```
+
+This directly addressed one of the fundamental differences between:
+
+```text
+speaker adaptation
+```
+
+and:
+
+```text
+language adaptation
+```
+
+---
+
+### 10. Prepared a Reproducible Training Repository
+
+The IndexTTS training code was organized as a separate training repository rather than mixed directly with the inference environment.
+
+The live training repository became the source for the future server package.
+
+The important files included:
+
+```text
+trainers/train_gpt_v2.py
+tools/preprocess_data.py
+tools/generate_gpt_pairs.py
+pyproject.toml
+uv.lock
+.python-version
+```
+
+This made the training environment reproducible through explicit code and dependency files.
+
+---
+
+### 11. Python 3.11 Became the Current Reference Runtime
+
+The training package was prepared around:
+
+```text
+Python 3.11
+```
+
+This was treated as the currently verified runtime rather than an eternal hard requirement.
+
+The principle became:
+
+```text
+use one known Python version
+↓
+verify dependencies
+↓
+verify PyTorch / CUDA
+↓
+only then run training
+```
+
+If another Python version is required later, the system should be migrated and revalidated rather than modified randomly during a server session.
+
+---
+
+### 12. Started Building the Server_Package
+
+Instead of manually copying commands to a rented machine later, a dedicated server package began to be assembled.
+
+The package was designed to contain everything required to reconstruct the training environment.
+
+Important components included:
+
+```text
+RUNPOD_SETUP.sh
+SERVER_PREFLIGHT.sh
+PREPARE_PARLASPEECH.sh
+BUILD_DATASET.py
+RUN_PREPROCESS.sh
+GENERATE_GPT_PAIRS.sh
+SMOKE_TEST.sh
+BENCHMARK_A40.sh
+TRAIN_FULL.sh
+RUNPOD_RUNBOOK.md
+```
+
+along with:
+
+```text
+Serbian tokenizer
+Serbian config
+initial GPT checkpoint
+dataset planning manifests
+training repository archive
+```
+
+The goal was:
+
+```text
+rent empty GPU machine
+↓
+upload Server_Package
+↓
+rebuild the same training environment
+```
+
+---
+
+### 13. Created RUNPOD_SETUP.sh
+
+`RUNPOD_SETUP.sh` was designed as the first server bootstrap stage.
+
+Its responsibility was to prepare the remote training environment rather than perform the entire training process automatically.
+
+The setup stage included responsibilities such as:
+
+```text
+prepare project directories
+↓
+install / select Python runtime
+↓
+restore training repository
+↓
+install dependencies
+↓
+place canonical model artifacts
+↓
+prepare environment for later stages
+```
+
+The setup script was intentionally separated from the actual training scripts.
+
+A failed environment setup should not accidentally start expensive GPU work.
+
+---
+
+### 14. Added a Staged / Smoke-Oriented Setup Philosophy
+
+The server workflow was deliberately designed not to jump directly into full training.
+
+The intended progression became:
+
+```text
+setup
+↓
+preflight
+↓
+data preparation
+↓
+smoke test
+↓
+benchmark
+↓
+full training
+```
+
+A smoke-oriented mode was considered especially important during initial RunPod deployment.
+
+The principle was:
+
+> First prove that the environment works. Then spend money on a long training run.
+
+---
+
+### 15. Created SERVER_PREFLIGHT.sh
+
+A separate:
+
+```text
+SERVER_PREFLIGHT.sh
+```
+
+was created to answer the question:
+
+> Is this server actually ready for the pipeline?
+
+The preflight stage checks the environment before dataset processing or training is allowed to continue.
+
+Its responsibilities include checks around:
+
+```text
+Python
+CUDA
+PyTorch
+required files
+training repository
+tokenizer
+configuration
+initial checkpoint
+disk state
+```
+
+This prevents failures from appearing only after several expensive stages have already run.
+
+---
+
+### 16. Added Package and File Integrity as a First-Class Requirement
+
+The training system began to treat file identity as important.
+
+The package therefore started using SHA256 verification for critical artifacts.
+
+The idea was:
+
+```text
+same filename
+≠
+proof of same file
+```
+
+Instead:
+
+```text
+filename
++
+SHA256
+=
+known artifact
+```
+
+This became especially important for:
+
+- tokenizer;
+- configuration;
+- checkpoints;
+- training repository archive;
+- server scripts.
+
+---
+
+### 17. Created RUN_PREPROCESS.sh
+
+IndexTTS requires preprocessing before GPT training pairs can be produced.
+
+A dedicated stage was created:
+
+```text
+RUN_PREPROCESS.sh
+```
+
+The intended sequence became:
+
+```text
+parlaspeech_sr_ready.jsonl
+↓
+RUN_PREPROCESS.sh
+↓
+IndexTTS-compatible processed dataset
+```
+
+Again, preprocessing was kept separate from dataset construction.
+
+This makes failures easier to diagnose and allows a successfully built dataset manifest to survive a later preprocessing problem.
+
+---
+
+### 18. Created GENERATE_GPT_PAIRS.sh
+
+After preprocessing, another dedicated stage produces the GPT training/validation manifests.
+
+The output contract became:
+
+```text
+gpt_pairs_train.jsonl
+gpt_pairs_val.jsonl
+```
+
+These files are the direct input for the GPT training stage.
+
+The pipeline therefore became more explicit:
+
+```text
+ParlaSpeech
+↓
+ready manifest
+↓
+preprocess
+↓
+GPT pair generation
+↓
+train / val manifests
+↓
+trainer
+```
+
+---
+
+### 19. Created an End-to-End Smoke Test
+
+Before renting a powerful GPU for full training, a short end-to-end test was needed.
+
+This became:
+
+```text
+SMOKE_TEST.sh
+```
+
+The purpose was not model quality.
+
+The purpose was to prove that the training chain is technically functional.
+
+The smoke configuration used a deliberately small workload, including approximately:
+
+```text
+max samples = 50
+max optimizer steps = 20
+```
+
+The smoke test was designed to exercise:
+
+```text
+dataset input
+↓
+preprocessing
+↓
+GPT pair generation
+↓
+trainer startup
+↓
+optimizer steps
+↓
+checkpoint creation
+```
+
+---
+
+### 20. Smoke Test Success Was Defined by Artifacts, Not Only Exit Code
+
+A successful command exit alone was considered insufficient.
+
+The smoke test also needed to verify that the expected training artifact was actually created.
+
+The idea became:
+
+```text
+trainer returned successfully
++
+expected checkpoint exists
++
+checkpoint is structurally usable
+=
+SMOKE TEST SUCCESS
+```
+
+This was one of the first places where the project began moving from:
+
+```text
+"the command did not crash"
+```
+
+to:
+
+```text
+"the stage proved its output contract"
+```
+
+---
+
+### 21. Introduced the "Each Stage Verifies Its Own Contract" Principle
+
+During the training-package work, an important engineering rule became explicit:
+
+> Every stage should verify the things that are critical for that stage instead of blindly trusting the previous stage.
+
+Examples:
+
+```text
+SETUP
+→ environment
+
+PREFLIGHT
+→ runtime / files / CUDA
+
+PREPARE
+→ source dataset integrity
+
+BUILD
+→ deterministic dataset manifest
+
+PREPROCESS
+→ processed training data
+
+SMOKE
+→ short functional training path
+
+BENCHMARK
+→ GPU / VRAM / performance
+
+TRAIN_FULL
+→ long-running training / resume
+```
+
+This principle made the pipeline more robust and also easier to adapt later.
+
+---
+
+### 22. Began Designing the GPU Benchmark Stage
+
+After the smoke test, the next planned gate became:
+
+```text
+BENCHMARK_A40.sh
+```
+
+The original target GPU was an NVIDIA A40.
+
+However, the benchmark was intentionally being designed around measurements rather than hard dependence on the A40 model name.
+
+Important future measurements included:
+
+```text
+optimizer step time
+peak VRAM
+checkpoint creation
+disk usage
+```
+
+This would later make it possible to evaluate another NVIDIA GPU if an A40 was unavailable.
+
+---
+
+### 23. A40 Became a Reference Target, Not a Permanent Dependency
+
+The training package began with A40 as the expected rented GPU.
+
+But an important architectural decision was made:
+
+```text
+A40 = current reference GPU
+```
+
+not:
+
+```text
+A40 = hard requirement
+```
+
+The correct future procedure would be:
+
+```text
+new GPU
+↓
+preflight
+↓
+smoke
+↓
+short benchmark
+↓
+measure VRAM and speed
+↓
+decide whether to continue
+```
+
+This made the training package more portable.
+
+---
+
+### 24. Started Preparing Full Training as a Separate Stage
+
+The actual long-running training script became:
+
+```text
+TRAIN_FULL.sh
+```
+
+It was deliberately kept separate from:
+
+```text
+SMOKE_TEST.sh
+```
+
+and:
+
+```text
+BENCHMARK_A40.sh
+```
+
+The distinction was important:
+
+```text
+SMOKE
+=
+does the training path work?
+
+BENCHMARK
+=
+is this GPU suitable?
+
+TRAIN_FULL
+=
+perform the actual long training
+```
+
+At this stage, the full-training path still required deeper review for resume behavior, checkpoints and long-run safety.
+
+That work was intentionally left for the next development stage rather than assumed to be safe.
+
+---
+
+### 25. Created a RunPod Runbook
+
+A dedicated:
+
+```text
+RUNPOD_RUNBOOK.md
+```
+
+was created to preserve the correct execution order.
+
+The server workflow was documented approximately as:
+
+```text
+RUNPOD_SETUP.sh
+↓
+SERVER_PREFLIGHT.sh
+↓
+PREPARE_PARLASPEECH.sh
+↓
+BUILD_DATASET.py
+↓
+RUN_PREPROCESS.sh
+↓
+GENERATE_GPT_PAIRS.sh
+↓
+SMOKE_TEST.sh
+↓
+BENCHMARK_A40.sh
+↓
+TRAIN_FULL.sh
+```
+
+The runbook is important because the package should remain usable even after the exact development commands are forgotten.
+
+---
+
+### 26. Separated Working Scripts from Development Experiments
+
+The package began to act as the canonical server-side interface.
+
+This meant a distinction between:
+
+```text
+development folders
+```
+
+and:
+
+```text
+Server_Package
+```
+
+The package should contain only the files actually required for reproducible deployment.
+
+Temporary experiments, local caches and unrelated development artifacts should not be treated as server inputs.
+
+---
+
+### 27. Began Treating the Training Repository as a Versioned Artifact
+
+The live IndexTTS training repository was prepared for packaging into:
+
+```text
+index-tts-2-train.zip
+```
+
+This archive was intended to become the canonical source restored by `RUNPOD_SETUP.sh`.
+
+The reason for using an archive rather than cloning an uncontrolled future repository state was reproducibility.
+
+The server should receive:
+
+```text
+the exact training code we tested
+```
+
+rather than:
+
+```text
+whatever happens to be current upstream when the GPU is rented
+```
+
+---
+
+### 28. Server Preparation Became Independent of GPU Budget
+
+This stage demonstrated an important practical advantage.
+
+Although the actual training GPU could not yet be rented, almost the entire infrastructure could be prepared without paying for GPU time.
+
+Work that could be completed locally included:
+
+```text
+dataset architecture
+training manifests
+tokenizer/config/checkpoint preparation
+training scripts
+server bootstrap
+preflight
+smoke-test design
+benchmark design
+full-training script
+runbook
+integrity checks
+```
+
+This significantly reduced the amount of expensive debugging that would later need to happen on RunPod.
+
+---
+
+### 💡 Main Result of the Day
+
+The Serbian adaptation project moved from:
+
+```text
+"we probably need to fine-tune IndexTTS"
+```
+
+to:
+
+```text
+a concrete reproducible training pipeline
+```
+
+The system now had clearly separated stages:
+
+```text
+SETUP
+↓
+PREFLIGHT
+↓
+DATASET PREPARATION
+↓
+DATASET BUILD
+↓
+PREPROCESS
+↓
+GPT PAIRS
+↓
+SMOKE
+↓
+BENCHMARK
+↓
+FULL TRAINING
+```
+
+The project was no longer waiting passively for GPU budget.
+
+Instead, the future rented GPU was being treated as the final execution environment for a package that should already be prepared and tested.
+
+---
+
+### ✅ Status at the End of Day 9
+
+#### Serbian Adaptation Direction
+
+```text
+ACTIVE
+```
+
+The problem had moved from general research into concrete training preparation.
+
+---
+
+#### ParlaSpeech
+
+```text
+SELECTED AS PRIMARY INITIAL DATASET
+```
+
+Canonical dataset planning files prepared.
+
+---
+
+#### Dataset Pipeline
+
+```text
+STRUCTURED
+```
+
+Main stages:
+
+```text
+PREPARE_PARLASPEECH
+↓
+BUILD_DATASET
+↓
+RUN_PREPROCESS
+↓
+GENERATE_GPT_PAIRS
+```
+
+---
+
+#### Serbian Training Artifacts
+
+```text
+PREPARED
+```
+
+Including:
+
+```text
+bpe_serbian_13005.model
+config_serbian_13005.yaml
+gpt_serbian_13005_init.pth
+```
+
+---
+
+#### Server_Package
+
+```text
+IN ACTIVE DEVELOPMENT
+```
+
+The package architecture and main server scripts were established.
+
+---
+
+#### SERVER_PREFLIGHT
+
+```text
+CREATED
+```
+
+Designed to validate the remote environment before expensive work.
+
+---
+
+#### SMOKE_TEST
+
+```text
+CREATED / BEING VALIDATED
+```
+
+Designed to prove the complete short training path.
+
+---
+
+#### BENCHMARK_A40
+
+```text
+PLANNED / UNDER DEVELOPMENT
+```
+
+Intended to measure:
+
+```text
+VRAM
+step time
+checkpoint behavior
+disk usage
+```
+
+before full training.
+
+---
+
+#### TRAIN_FULL
+
+```text
+CREATED
+REQUIRES DEEP SAFETY REVIEW
+```
+
+Important remaining questions included:
+
+```text
+resume after interruption
+checkpoint safety
+logging
+epochs / steps
+disk safety
+final success criteria
+```
+
+---
+
+#### RunPod
+
+```text
+NOT STARTED
+```
+
+Reason:
+
+```text
+budget
+```
+
+No paid GPU training was performed.
+
+---
+
+### 🔥 Day 9 Milestone
+
+The project gained a new engineering layer.
+
+Before:
+
+```text
+Serbian adaptation
+=
+research problem
+```
+
+After:
+
+```text
+Serbian adaptation
+=
+dataset
++
+training artifacts
++
+server package
++
+staged validation
++
+future GPU execution
+```
+
+The most important architectural principle established during this stage was:
+
+```text
+each stage verifies
+what is important
+for that stage
+```
+
+This principle would guide the deeper safety work on benchmark and full training.
+
+---
+
+### 🔜 Next Step
+
+Before renting the training GPU:
+
+- finish validating `SERVER_PREFLIGHT.sh`;
+- fully verify the ParlaSpeech → dataset-build path;
+- complete the end-to-end `SMOKE_TEST.sh`;
+- strengthen and audit `BENCHMARK_A40.sh`;
+- deeply review `TRAIN_FULL.sh`;
+- verify resume behavior after interruption;
+- protect long-running checkpoints;
+- verify disk safety;
+- finalize the training repository archive;
+- update package SHA256 checks;
+- perform a complete final package audit.
+
+Only after these stages are green:
+
+```text
+rent GPU
+↓
+upload Server_Package
+↓
+RUNPOD_SETUP
+↓
+SERVER_PREFLIGHT
+↓
+SMOKE
+↓
+BENCHMARK
+↓
+TRAIN_FULL
+```
+
+---
+
+### 🔗 Related
+
+- Day 8
+- Serbian Adaptation
+- Serbian Model
+- Serbian Datasets
+- ParlaSpeech
+- IndexTTS-2
+- TED-TTS
+- Serbian Tokenizer
+- Fine-tuning
+- GPU Rental
+- RunPod
+- Server_Package
+- RUNPOD_SETUP
+- SERVER_PREFLIGHT
+- BUILD_DATASET
+- SMOKE_TEST
+- BENCHMARK_A40
+- TRAIN_FULL
+- RunPod Runbook
