@@ -1,5 +1,9 @@
 # DubLab SRB — Roadmap
 
+> ⚠️ Legacy roadmap.
+>
+> This file preserves an earlier development plan.
+> The current roadmap is available in `ROADMAP_v2.md`.
 ## Current Goal
 
 Build a complete **3–5 minute Serbian-dubbed film scene** using the best currently available tools.
