@@ -21,18 +21,42 @@ The pipeline will explore:
 
 ## 🧪 Current stage
 
-Research and prototype development.
+DubLab SRB currently has two parallel development tracks.
 
-Several TTS solutions have already been tested, including F5-TTS Serbian, Fish Audio and ElevenLabs.
+### Prototype V1
 
-The immediate milestone is simple:
+A working Serbian dubbing baseline has been built and tested on real movie material.
 
-**One complete 3–5 minute film scene dubbed into Serbian from start to finish.**
+The pipeline already includes:
 
-## 📖 Development Journal
+- dialogue / background separation;
+- WhisperX transcription and timestamps;
+- speaker diarization;
+- structured dubbing scripts;
+- Serbian translation;
+- Serbian TTS generation;
+- timeline reconstruction;
+- duration analysis and correction.
 
-The development process, experiments, failures and results will be documented in this repository.
+V1 is the current stable and repeatable baseline.
 
+### Experimental V2
+
+The second research direction focuses on preserving more of the original acting performance:
+
+- speaker identity;
+- emotion;
+- pacing;
+- pauses;
+- approximate duration.
+
+TED-TTS / IndexTTS-2 has shown promising local control over speaker identity, emotion and duration.
+
+The current blocker is Serbian language support.
+
+The next major R&D objective is therefore:
+
+**Serbian expressive speech with IndexTTS-style performance control.**
 ## ⚠️ Status
 
 DubLab SRB is currently an experimental R&D project and is not production-ready.
