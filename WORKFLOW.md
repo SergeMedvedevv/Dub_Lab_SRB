@@ -14,7 +14,7 @@ The purpose of this file is simple:
 
 Experimental history belongs in `JOURNAL.md`.
 
-Future development belongs in `ROADMAP.md`.
+Future development belongs in `ROADMAP_v2.md`.
 
 ---
 
